@@ -1,0 +1,2 @@
+function calculateRewards(ids,items,missions){const unique=[...new Set(ids)].filter(id=>items.some(i=>i.id===id));const completedMissions=missions.filter(m=>unique.length>=m.required).map(m=>m.id);const score=items.filter(i=>unique.includes(i.id)).reduce((s,i)=>s+(Number.isFinite(i.points)?i.points:0),0)+missions.filter(m=>completedMissions.includes(m.id)).reduce((s,m)=>s+(Number.isFinite(m.reward)?m.reward:0),0);return {score,completedMissions}}
+module.exports={calculateRewards};

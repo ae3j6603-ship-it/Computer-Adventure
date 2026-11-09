@@ -1,0 +1,19 @@
+{
+  "name": "computer-adventure",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.cjs",
+    "check": "node scripts/check.mjs",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-computer-adventure \"node --test --test-concurrency=1 test/firestore.rules.test.mjs\"",
+    "bootstrap": "node scripts/bootstrap.mjs",
+    "deploy": "firebase deploy --only firestore:rules,functions,hosting",
+    "test:integration": "firebase emulators:exec --only firestore,auth,functions --project demo-computer-adventure \"node --test --test-concurrency=1 test/functions.integration.test.mjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "firebase": "^13.2.0",
+    "firebase-tools": "^15.35.0"
+  }
+}

@@ -1,1 +1,35 @@
-{"hosting":{"public":"dist","ignore":["firebase.json","**/.*","**/node_modules/**"],"headers":[{"source":"**/*.js","headers":[{"key":"Cache-Control","value":"public,max-age=3600"}]}]},"firestore":{"rules":"firestore.rules"},"functions":[{"source":"functions","codebase":"default"}],"emulators":{"auth":{"port":9099},"firestore":{"port":8080},"functions":{"port":5001},"ui":{"enabled":true}}}
+{
+  "hosting": {
+    "public": "dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "headers": [
+      {
+        "source": "**/*.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public,max-age=300"
+          }
+        ]
+      }
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "ui": {
+      "enabled": true
+    }
+  }
+}

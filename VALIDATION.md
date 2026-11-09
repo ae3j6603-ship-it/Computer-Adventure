@@ -1,10 +1,11 @@
-# Validation
+# Firebase Spark validation
 
-- `npm test`: 3 reward calculation tests passed.
-- `npm run test:rules`: 10 Firestore Emulator security tests passed.
-- `npm run check`: syntax checks passed.
-- Browser game QA: movement, follow camera, collection, lesson display, mission rewards, inventory, reload/resume and local admin save were tested in the preceding build.
-- `npm run test:integration`: attempted with Auth, Firestore and Functions Emulators. The Functions runtime could not listen on a Unix socket in this execution environment (`listen EPERM /tmp/fire_emu_*.sock`), so integration validation is not claimed as passing locally. GitHub Actions includes this check on a standard Ubuntu runner.
-- Real Google OAuth, Firebase deployment and cross-device resume require a connected real Firebase project; not yet verified.
-
-No production credentials, project ID or service-account private keys were added.
+- Reward unit tests: 3 passed.
+- Firestore Rules: 22 passed, including all 12 sequential discoveries (1700 XP), forged XP, duplicate/reset inventory, atomic writes, cross-UID isolation and verified admin-email authorization.
+- Production transaction against Firestore Emulator: 3 passed, including duplicate collection and concurrent transactions.
+- JavaScript syntax checks: passed.
+- Firebase project: computer-adventure-ae3j6603. Billing API reported billingEnabled=false.
+- Firestore: Standard edition, asia-southeast1, freeTier=true.
+- Initial data: 12 items, 3 missions, 2 public game-settings documents and 1 protected admin-settings document.
+- Google sign-in enabled through Firebase Console, which displayed Spark / No-cost ($0/month).
+- Deploy includes only Hosting and Firestore Rules. No Cloud Functions dependency or deployment remains.

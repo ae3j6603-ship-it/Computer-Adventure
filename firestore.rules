@@ -2,31 +2,44 @@ rules_version = '2';
 service cloud.firestore {
  match /databases/{database}/documents {
   function signedIn(){return request.auth != null;}
-  function admin(){return signedIn() && request.auth.token.admin == true;}
+  function admin(){return signedIn() && (request.auth.token.get('admin',false) == true || (request.auth.token.get('email_verified',false) == true && exists(/databases/$(database)/documents/admin_settings/access) && request.auth.token.get('email','') in get(/databases/$(database)/documents/admin_settings/access).data.emails));}
   function owner(uid){return signedIn() && request.auth.uid == uid;}
-  function validPosition(){return request.resource.data.position is map
-   && request.resource.data.position.keys().hasOnly(['x','z'])
-   && request.resource.data.position.x is number && request.resource.data.position.z is number
-   && request.resource.data.position.x >= -32 && request.resource.data.position.x <= 32
-   && request.resource.data.position.z >= -26 && request.resource.data.position.z <= 26;}
+  function rewards(){return get(/databases/$(database)/documents/game_settings/rewards).data;}
+  function itemIds(){return ['evolution','science','smart','ai','vehicle','problem','design','test','value','materials','mechanics','electronics'];}
+  function points(ids,key,r){return key in ids ? r.points[key] : 0;}
+  function score(ids,r){return points(ids,'evolution',r)+points(ids,'science',r)+points(ids,'smart',r)+points(ids,'ai',r)+points(ids,'vehicle',r)+points(ids,'problem',r)+points(ids,'design',r)+points(ids,'test',r)+points(ids,'value',r)+points(ids,'materials',r)+points(ids,'mechanics',r)+points(ids,'electronics',r)
+   +(ids.size()>=r.missions.first.required?r.missions.first.reward:0)
+   +(ids.size()>=r.missions.explorer.required?r.missions.explorer.reward:0)
+   +(ids.size()>=r.missions.master.required?r.missions.master.reward:0);}
+  function completed(ids,r){return (ids.size()>=r.missions.first.required?['first']:[]).concat(ids.size()>=r.missions.explorer.required?['explorer']:[]).concat(ids.size()>=r.missions.master.required?['master']:[]);}
+  function validPosition(d){return d.position is map && d.position.keys().hasOnly(['x','z']) && d.position.x is number && d.position.z is number && d.position.x>=-32 && d.position.x<=32 && d.position.z>=-26 && d.position.z<=26;}
+  function validInventory(d){return d.keys().hasOnly(['ids','score','lastItem','updatedAt']) && d.ids is list && d.ids.size()>0 && d.ids.size()<=12 && d.ids.toSet().size()==d.ids.size() && d.ids.hasOnly(itemIds()) && d.lastItem in d.ids && d.score is int && d.score==score(d.ids,rewards()) && d.updatedAt==request.time;}
+  function matchesInventory(uid,d){let inv=getAfter(/databases/$(database)/documents/player_inventory/$(uid)).data;return inv.updatedAt==request.time && d.score==inv.score;}
+  function validProgress(uid,d){let inv=getAfter(/databases/$(database)/documents/player_inventory/$(uid)).data;return d.keys().hasOnly(['position','score','completedMissions','updatedAt']) && validPosition(d) && d.updatedAt==request.time && matchesInventory(uid,d) && d.completedMissions==completed(inv.ids,rewards());}
+  function fullBatch(uid,d){let p=getAfter(/databases/$(database)/documents/player_progress/$(uid)).data;let l=getAfter(/databases/$(database)/documents/leaderboard/$(uid)).data;return p.score==d.score && p.updatedAt==request.time && l.score==d.score && l.itemCount==d.ids.size() && l.updatedAt==request.time;}
   match /users/{uid} {
-   allow read: if owner(uid) || admin();
-   allow create,update: if owner(uid) && request.resource.data.keys().hasOnly(['displayName','photoURL','updatedAt'])
-    && request.resource.data.displayName is string && request.resource.data.displayName.size() <= 120
-    && request.resource.data.photoURL is string && request.resource.data.photoURL.size() <= 2048;
+   allow read: if owner(uid)||admin();
+   allow create,update: if owner(uid) && request.resource.data.keys().hasOnly(['displayName','photoURL','updatedAt']) && request.resource.data.displayName is string && request.resource.data.displayName.size()<=120 && request.resource.data.photoURL is string && request.resource.data.photoURL.size()<=2048;
    allow delete: if admin();
   }
-  match /items/{id} {allow read: if true; allow write: if admin();}
-  match /missions/{id} {allow read: if true; allow write: if admin();}
-  match /game_settings/{id} {allow read: if true; allow write: if admin();}
-  match /player_inventory/{uid} {allow read: if owner(uid) || admin(); allow write: if false;}
-  match /player_progress/{uid} {
-   allow read: if owner(uid) || admin();
-   allow create: if owner(uid) && request.resource.data.keys().hasOnly(['position','updatedAt']) && validPosition();
-   allow update: if owner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['position','updatedAt']) && validPosition();
-   allow delete: if false;
+  match /admin_settings/{id} {allow read: if admin();allow write: if false;}
+  match /items/{id} {allow read: if true;allow write: if admin() && id in itemIds();}
+  match /missions/{id} {allow read: if true;allow write: if admin() && id in ['first','explorer','master'];}
+  match /game_settings/{id} {allow read: if true;allow write: if admin();}
+  match /player_inventory/{uid} {
+   allow read: if owner(uid)||admin();
+   allow create: if owner(uid) && validInventory(request.resource.data) && request.resource.data.ids.size()==1 && fullBatch(uid,request.resource.data);
+   allow update: if owner(uid) && validInventory(request.resource.data) && request.resource.data.ids.size()==resource.data.ids.size()+1 && !(request.resource.data.lastItem in resource.data.ids) && request.resource.data.ids.toSet()==resource.data.ids.concat([request.resource.data.lastItem]).toSet() && fullBatch(uid,request.resource.data);
   }
-  match /leaderboard/{uid} {allow read: if signedIn(); allow write: if false;}
+  match /player_progress/{uid} {
+   allow read: if owner(uid)||admin();
+   allow create: if owner(uid) && ((request.resource.data.keys().hasOnly(['position','updatedAt']) && validPosition(request.resource.data)) || validProgress(uid,request.resource.data));
+   allow update: if owner(uid) && ((request.resource.data.diff(resource.data).affectedKeys().hasOnly(['position','updatedAt']) && validPosition(request.resource.data)) || validProgress(uid,request.resource.data));
+  }
+  match /leaderboard/{uid} {
+   allow read: if signedIn();
+   allow create,update: if owner(uid) && request.resource.data.keys().hasOnly(['displayName','score','itemCount','updatedAt']) && request.resource.data.displayName is string && request.resource.data.displayName.size()<=120 && matchesInventory(uid,request.resource.data) && request.resource.data.itemCount==getAfter(/databases/$(database)/documents/player_inventory/$(uid)).data.ids.size() && request.resource.data.updatedAt==request.time;
+  }
   match /{document=**} {allow read,write: if false;}
  }
 }
